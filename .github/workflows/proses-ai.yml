@@ -3,7 +3,7 @@ run-name: Memproses dari folder Drive...
 
 on:
   repository_dispatch:
-    types: [dari-apps-script]
+    types: [dari-apps-script, tanya-dari-web]
 
 jobs:
   proses:

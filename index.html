@@ -81,16 +81,24 @@
       window.scrollTo(0, document.body.scrollHeight);
     }
 
+    // ✅ Diperbaiki: pakai header Authorization untuk embedding
     async function buatVektor(teks) {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "models/gemini-embedding-001",
-          outputDimensionality: 768,
-          content: { parts: [{ text: teks }] }
-        })
-      });
+      const res = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+        {
+          method: "POST",
+          headers: {
+            "x-goog-api-key": GEMINI_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "models/gemini-embedding-001",
+            outputDimensionality: 768,
+            content: { parts: [{ text: teks }] }
+          })
+        }
+      );
+
       if (!res.ok) {
         const e = await res.json();
         throw new Error(`Gemini: ${e.error?.message || res.status}`);
@@ -114,20 +122,23 @@
     }
 
     async function tanyaAI(pertanyaan, konteks) {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `Jawab HANYA dari konteks di bawah ini.
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `Jawab HANYA dari konteks di bawah ini.
 
 PERTANYAAN: ${pertanyaan}
 
 KONTEKS:
 ${konteks}
 
-Jawab dengan bahasa Indonesia. Jika tidak ada, katakan: "Maaf, informasi tersebut tidak ditemukan dalam dokumen."` }] }]
-        })
-      });
+Jawab dengan bahasa Indonesia yang jelas. Jika tidak ada jawaban, katakan: "Maaf, informasi tersebut tidak ditemukan dalam dokumen."` }] }]
+          })
+        }
+      );
       if (!res.ok) throw new Error(`AI Error: ${res.status}`);
       const d = await res.json();
       return d.candidates[0].content.parts[0].text;
@@ -148,7 +159,7 @@ Jawab dengan bahasa Indonesia. Jika tidak ada, katakan: "Maaf, informasi tersebu
         const hasil = await cariDokumen(vektor);
         
         if (!hasil || hasil.length === 0) {
-          tambahPesan("Maaf, dokumen yang relevan tidak ditemukan. Pastikan dokumen sudah diproses.");
+          tambahPesan("Maaf, dokumen yang relevan tidak ditemukan. Pastikan dokumen sudah diproses di Pipedream.");
           return;
         }
 

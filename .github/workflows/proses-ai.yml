@@ -4,6 +4,7 @@ on:
   repository_dispatch:
     types:
       - dari-apps-script
+      - tanya-dari-web
 
 jobs:
   proses:
@@ -20,19 +21,19 @@ jobs:
           PERTANYAAN: ${{ github.event.client_payload.pertanyaan }}
         run: |
           if [ "$PERTANYAAN" = "perbarui-saja" ]; then
-            JAWABAN="Dokumen berhasil diperbarui. Panjang teks: $(echo "$DOKUMEN" | wc -c) karakter."
+            JAWABAN="✅ Dokumen berhasil diperbarui! Panjang teks: $(echo "$DOKUMEN" | wc -c) karakter. Buka halaman utama untuk menanya."
           else
-            JAWABAN="Pertanyaan diterima: $PERTANYAAN"
+            JAWABAN="Pertanyaan Anda: $PERTANYAAN — sedang diproses..."
           fi
           
           echo '<!DOCTYPE html>' > jawaban.html
-          echo '<html lang="id">' >> jawaban.html
-          echo '<head><meta charset="UTF-8"><title>Jawaban</title>' >> jawaban.html
-          echo '<style>body{font-family:sans-serif;max-width:700px;margin:3rem auto;padding:0 1rem;}' >> jawaban.html
+          echo '<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">' >> jawaban.html
+          echo '<title>Jawaban — SISTAJA</title>' >> jawaban.html
+          echo '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:3rem auto;padding:0 1rem;}' >> jawaban.html
           echo '.kotak{background:#f0f9ff;padding:1.5rem;border-radius:10px;border-left:5px solid #3b82f6;}' >> jawaban.html
           echo '</style></head><body>' >> jawaban.html
           echo '<h1>📄 Jawaban</h1><div class="kotak"><p>'"$JAWABAN"'</p></div>' >> jawaban.html
-          echo '<p><a href="index.html">← Kembali</a></p></body></html>' >> jawaban.html
+          echo '<p><a href="index.html">← Kembali ke Halaman Utama</a></p></body></html>' >> jawaban.html
 
       - name: Simpan & unggah
         run: |

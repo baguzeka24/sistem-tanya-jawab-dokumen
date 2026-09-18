@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Tanya Jawab Dokumen</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: '#165DFF' }
+        }
+      }
+    }
+  </script>
+  <style>
+    .gradient-bg { background: linear-gradient(135deg, #165DFF 0%, #36CBCB 100%); }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn { animation: fadeIn 0.3s ease forwards; }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <header class="gradient-bg text-white py-4 px-6 shadow-lg">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+          <i class="fa fa-robot text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold">Asisten Dokumen</h1>
+          <p class="text-white/80 text-sm">Berdasarkan dokumen yang Anda unggah</p>
+        </div>
+      </div>
+      <div id="status" class="flex items-center gap-2 text-sm">
+        <span class="w-2 h-2 bg-green-400 rounded-full"></span> Siap
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6 pb-32">
+    <div id="chat" class="space-y-6">
+      <div class="flex gap-3 animate-fadeIn">
+        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+          <i class="fa fa-info"></i>
+        </div>
+        <div class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-gray-100 max-w-[90%]">
+          <p>Halo! 👋 Silakan tanya apa saja seputar dokumen yang telah diunggah.</p>
+        </div>
+      </div>
+    </div>
+    <div id="loading" class="hidden flex gap-3 mt-6">
+      <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+      </div>
+      <div class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-gray-100">
+        <div class="flex gap-1">
+          <span class="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style="animation-delay:0ms"></span>
+          <span class="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style="animation-delay:150ms"></span>
+          <span class="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style="animation-delay:300ms"></span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+    <form id="form" class="max-w-5xl mx-auto">
+      <div class="flex gap-3 items-end">
+        <textarea id="tanya" placeholder="Tulis pertanyaan..." rows="1"
+          class="flex-1 border border-gray-300 rounded-2xl p-3 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"></textarea>
+        <button type="submit" class="bg-primary hover:bg-primary/90 text-white rounded-full w-10 h-10 flex items-center justify-center">
+          <i class="fa fa-paper-plane"></i>
+        </button>
+      </div>
+    </form>
+  </footer>
+
+  <script>
+    const SUPABASE_URL = "https://fwnkrwaoayikhpdbdoyz.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3bmtyd2FvYXlpa2hwZGJkb3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDM3MjksImV4cCI6MjEwNTA3OTcyOX0.cRQc7Wk9ClTunG1QfITgxMwruke29uegRtXGd6tAnIA";
+    const GEMINI_KEY = "AQ.Ab8RN6Ki8-VPx074DcsceVjdXwA4YG-9xmKnGh9aH4UR6hjOcQ";
+
+    const chat = document.getElementById('chat');
+    const form = document.getElementById('form');
+    const tanya = document.getElementById('tanya');
+    const loading = document.getElementById('loading');
+    const status = document.getElementById('status');
+
+    function tambahPesan(teks, isUser = false, sumber = null) {
+      const div = document.createElement('div');
+      div.className = `flex gap-3 animate-fadeIn ${isUser ? 'flex-row-reverse' : ''}`;
+      const bg = isUser ? 'bg-primary text-white rounded-tr-none' : 'bg-white rounded-tl-none border';
+      const ikon = isUser ? '<i class="fa fa-user"></i>' : '<i class="fa fa-robot"></i>';
+      const infoSumber = sumber ? `<div class="mt-2 pt-2 border-t text-xs text-gray-500">📄 Sumber: ${sumber}</div>` : '';
+      div.innerHTML = `
+        <div class="w-8 h-8 rounded-full ${isUser ? 'bg-white/20' : 'bg-primary/10 text-primary'} flex items-center justify-center flex-shrink-0">${ikon}</div>
+        <div class="${bg} p-4 shadow-sm max-w-[90%] whitespace-pre-wrap">${teks}${infoSumber}</div>
+      `;
+      chat.appendChild(div);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    async function buatVektor(teks) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'models/gemini-embedding-001',
+            outputDimensionality: 768,
+            content: { parts: [{ text: teks }] }
+          })
+        }
+      );
+      if (!res.ok) throw new Error(`Gagal buat vektor: ${res.status}`);
+      const d = await res.json();
+      return d.embedding.values;
+    }
+
+    async function cariDokumen(vektor) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/cari_dokumen`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ vektor_input: vektor, batas: 3 })
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const teks = await res.text();
+      return teks ? JSON.parse(teks) : [];
+    }
+
+    async function tanyaAI(pertanyaan, konteks) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `Jawab HANYA dari konteks di bawah ini.
+
+PERTANYAAN: ${pertanyaan}
+
+KONTEKS:
+${konteks}
+
+Jawab dengan bahasa Indonesia yang jelas. Jika tidak ada jawaban, katakan: "Maaf, informasi tersebut tidak ditemukan dalam dokumen."` }] }]
+          })
+        }
+      );
+      if (!res.ok) throw new Error(`AI Error: ${res.status}`);
+      const d = await res.json();
+      return d.candidates[0].content.parts[0].text;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const teksPertanyaan = tanya.value.trim();
+      if (!teksPertanyaan) return;
+
+      tambahPesan(teksPertanyaan, true);
+      tanya.value = '';
+      loading.classList.remove('hidden');
+      status.innerHTML = '<span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span> Memproses...';
+
+      try {
+        const vektor = await buatVektor(teksPertanyaan);
+        const hasil = await cariDokumen(vektor);
+        
+        if (!hasil || hasil.length === 0) {
+          tambahPesan("Maaf, dokumen yang relevan tidak ditemukan. Pastikan dokumen sudah diproses.");
+          return;
+        }
+
+        const konteks = hasil.map(d => `[${d.nama_file}]\n${d.content}`).join('\n\n');
+        const sumber = hasil.map(d => d.nama_file).join(', ');
+        const jawab = await tanyaAI(teksPertanyaan, konteks);
+        tambahPesan(jawab, false, sumber);
+        status.innerHTML = '<span class="w-2 h-2 bg-green-400 rounded-full"></span> Siap';
+
+      } catch (err) {
+        tambahPesan(`⚠️ Kesalahan: ${err.message}`);
+        status.innerHTML = '<span class="w-2 h-2 bg-red-400 rounded-full"></span> Error';
+      } finally {
+        loading.classList.add('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

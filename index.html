@@ -6,55 +6,55 @@
   <style>
     body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
     .kotak { background: #f5f5f5; padding: 1.5rem; border-radius: 10px; margin: 1rem 0; }
-    textarea, input { width: 100%; padding: 0.8rem; margin: 0.5rem 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+    textarea, input { width: 100%; padding: 0.8rem; margin: 0.5rem 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
     button { background: #e63946; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 1rem; }
     button:disabled { background: #aaa; cursor: not-allowed; }
-    .jawaban { margin-top: 1rem; padding: 1rem; background: #fff0f0; border-radius: 6px; display: none; white-space: pre-wrap; }
+    .pesan { margin-top: 1rem; padding: 1rem; border-radius: 6px; display: none; }
+    .sukses { background: #e6fffa; display: block; }
+    .salah { background: #ffe6e6; display: block; }
     .info { font-size: 0.9rem; color: #666; margin-top: 0.5rem; }
   </style>
 </head>
 <body>
-
-  <h1>⚡ AI Tanya Dokumen — Cerebras</h1>
-
-  <div class="kotak">
-    <h3>1. Masukkan Dokumen</h3>
-    <textarea id="dokumen" rows="6" placeholder="Tempel isi dokumen di sini..."></textarea>
-  </div>
+  <h1>⚡ AI SISTAJA — Tanya Dokumen Folder Drive</h1>
 
   <div class="kotak">
-    <h3>2. Tanyakan Sesuatu</h3>
-    <input type="text" id="pertanyaan" placeholder="Contoh: Apa inti dokumen ini?">
+    <h3>💬 Tulis Pertanyaan</h3>
+    <input type="text" id="pertanyaan" placeholder="Contoh: Apa yang diatur dalam PDD KHAS TNI AL?">
     <br><br>
-    <button id="tombolKirim" onclick="mulaiTanya()">Kirim Pertanyaan</button>
-    <p class="info">⚠️ Pertama kali butuh waktu ~10-30 detik</p>
+    <button id="tombolKirim" onclick="kirimPertanyaan()">Kirim Pertanyaan</button>
+    <p class="info">Sistem akan mencari jawaban dari SEMUA file di folder Google Drive</p>
   </div>
 
-  <div id="hasil" class="jawaban"></div>
+  <div id="pesan" class="pesan"></div>
 
   <script>
-    // === UBAH BAGIAN INI ===
-    const REPO_OWNER = "baguzeka24";   // contoh: "budi123"
+    const REPO_OWNER = "baguzeka24";
     const REPO_NAME = "sistem-tanya-jawab-dokumen";
-    // ========================
 
-    async function mulaiTanya() {
-      const dokumen = document.getElementById('dokumen').value;
-      const pertanyaan = document.getElementById('pertanyaan').value;
-      const tombol = document.getElementById('tombolKirim');
-      const hasil = document.getElementById('hasil');
+    async function kirimPertanyaan() {
+      const pertanyaan = document.getElementById("pertanyaan").value.trim();
+      const tombol = document.getElementById("tombolKirim");
+      const pesan = document.getElementById("pesan");
 
-      if (!dokumen || !pertanyaan) {
-        alert("Isi dokumen dan pertanyaan dulu!");
+      if (!pertanyaan) {
+        pesan.className = "pesan salah";
+        pesan.textContent = "⚠️ Silakan tulis pertanyaan terlebih dahulu!";
         return;
       }
 
       tombol.disabled = true;
-      tombol.textContent = "⏳ Memproses...";
-      hasil.style.display = "block";
-      hasil.textContent = "Mengirim ke sistem...";
+      tombol.textContent = "⏳ Mengirim...";
+      pesan.className = "pesan";
+      pesan.textContent = "";
 
       try {
+        // Panggil Google Apps Script untuk membaca folder + kirim ke GitHub
+        // Catatan: Agar bisa dipanggil dari web, Apps Script perlu di-deploy sebagai Web App
+        pesan.className = "pesan sukses";
+        pesan.innerHTML = "✅ Pertanyaan dikirim!<br>Buka halaman <strong>jawaban.html</strong> dalam 20–30 detik untuk melihat hasilnya.";
+
+        // Kirim langsung ke GitHub Actions (Apps Script akan menangani pembacaan Drive di latar belakang)
         const res = await fetch(
           `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`,
           {
@@ -64,29 +64,22 @@
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
-              event_type: "tanya-ai",
-              client_payload: {
-                dokumen: dokumen,
-                pertanyaan: pertanyaan
-              }
+              event_type: "tanya-dari-web",
+              client_payload: { pertanyaan: pertanyaan }
             })
           }
         );
 
         if (!res.ok) throw new Error("Kode: " + res.status);
 
-        hasil.innerHTML = "✅ Permintaan dikirim! <br>";
-        hasil.innerHTML += "Buka halaman <strong>jawaban.html</strong> dalam 15-30 detik untuk melihat hasilnya.";
-
       } catch (err) {
-        hasil.innerHTML = "❌ Kesalahan: " + err.message + "<br>";
-        hasil.innerHTML += "Pastikan nama pemilik dan nama repositori sudah benar.";
+        pesan.className = "pesan salah";
+        pesan.innerHTML = "❌ Kesalahan: " + err.message + "<br>Pastikan token GitHub sudah benar dan memiliki izin repositori.";
       }
 
       tombol.disabled = false;
       tombol.textContent = "Kirim Pertanyaan";
     }
   </script>
-
 </body>
 </html>

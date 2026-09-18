@@ -80,6 +80,8 @@
   </footer>
 
   <script>
+    // === KONFIGURASI ===
+    const PIPEDREAM_API = "https://eoorg5tfn27u1aj.m.pipedream.net";
     const SUPABASE_URL = "https://fwnkrwaoayikhpdbdoyz.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3bmtyd2FvYXlpa2hwZGJkb3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDM3MjksImV4cCI6MjEwNTA3OTcyOX0.cRQc7Wk9ClTunG1QfITgxMwruke29uegRtXGd6tAnIA";
     const GEMINI_KEY = "AQ.Ab8RN6Ki8-VPx074DcsceVjdXwA4YG-9xmKnGh9aH4UR6hjOcQ";
@@ -104,45 +106,45 @@
       window.scrollTo(0, document.body.scrollHeight);
     }
 
+    // Buat vektor lewat Pipedream (kunci aman tersembunyi)
     async function buatVektor(teks) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'models/gemini-embedding-001',
-            outputDimensionality: 768,
-            content: { parts: [{ text: teks }] }
-          })
-        }
-      );
-      if (!res.ok) throw new Error(`Gagal buat vektor: ${res.status}`);
-      const d = await res.json();
-      return d.embedding.values;
+      const res = await fetch(PIPEDREAM_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teks: teks })
+      });
+      
+      const hasil = await res.json();
+      if (!hasil.sukses) throw new Error(hasil.pesan || "Gagal buat vektor");
+      return hasil.vektor;
     }
 
+    // Cari dokumen di Supabase
     async function cariDokumen(vektor) {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/cari_dokumen`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json'
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ vektor_input: vektor, batas: 3 })
       });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const teks = await res.text();
-      return teks ? JSON.parse(teks) : [];
+
+      if (!res.ok) {
+        const teksErr = await res.text();
+        throw new Error(`Error ${res.status}: ${teksErr.substring(0, 200)}`);
+      }
+      return await res.json();
     }
 
+    // Hasilkan jawaban dari Gemini
     async function tanyaAI(pertanyaan, konteks) {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: `Jawab HANYA dari konteks di bawah ini.
 
@@ -160,6 +162,7 @@ Jawab dengan bahasa Indonesia yang jelas. Jika tidak ada jawaban, katakan: "Maaf
       return d.candidates[0].content.parts[0].text;
     }
 
+    // Kirim pertanyaan
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const teksPertanyaan = tanya.value.trim();
@@ -175,17 +178,19 @@ Jawab dengan bahasa Indonesia yang jelas. Jika tidak ada jawaban, katakan: "Maaf
         const hasil = await cariDokumen(vektor);
         
         if (!hasil || hasil.length === 0) {
-          tambahPesan("Maaf, dokumen yang relevan tidak ditemukan. Pastikan dokumen sudah diproses.");
+          tambahPesan("Maaf, dokumen yang relevan tidak ditemukan. Pastikan dokumen sudah diproses di Pipedream.");
           return;
         }
 
         const konteks = hasil.map(d => `[${d.nama_file}]\n${d.content}`).join('\n\n');
         const sumber = hasil.map(d => d.nama_file).join(', ');
         const jawab = await tanyaAI(teksPertanyaan, konteks);
+        
         tambahPesan(jawab, false, sumber);
         status.innerHTML = '<span class="w-2 h-2 bg-green-400 rounded-full"></span> Siap';
 
       } catch (err) {
+        console.error(err);
         tambahPesan(`⚠️ Kesalahan: ${err.message}`);
         status.innerHTML = '<span class="w-2 h-2 bg-red-400 rounded-full"></span> Error';
       } finally {

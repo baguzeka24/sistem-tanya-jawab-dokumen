@@ -15,92 +15,77 @@ jobs:
       - name: Ambil salinan kode
         uses: actions/checkout@v4
 
-      - name: Proses AI & buat tampilan percakapan
+      - name: Buat skrip proses
         env:
           DOKUMEN: ${{ github.event.client_payload.dokumen }}
           PERTANYAAN: ${{ github.event.client_payload.pertanyaan }}
           API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
         run: |
-          # === Mode perbarui dokumen ===
-          if [ "$PERTANYAAN" = "perbarui-saja" ]; then
-            TAMPILAN="
-            <div class='kotak sistem'>
-              <strong>📢 Sistem:</strong> Dokumen berhasil dibaca — <strong>$(echo "$DOKUMEN" | wc -c)</strong> karakter siap dijawab.
-              <br><br>Silakan tulis pertanyaan kamu di halaman utama.
-            </div>
-            "
+          cat > jalankan_ai.sh << 'SCRIPT'
+          #!/bin/bash
           
-          # === Mode tanya jawab sungguhan ===
+          if [ "$PERTANYAAN" = "perbarui-saja" ]; then
+              TAMPILAN_KONTEN="<div class='kotak sistem'><strong>📢 Sistem:</strong> Dokumen berhasil dibaca — $(echo "$DOKUMEN" | wc -c) karakter siap dijawab.<br><br>Silakan tulis pertanyaan kamu di halaman utama.</div>"
           else
-            # Potong dokumen agar muat
-            DOKUMEN_POTONG=$(echo "$DOKUMEN" | cut -c 1-40000)
-            
-            # Kirim ke AI Cerebras
-            RESPONS=$(curl -s -X POST "https://api.cerebras.ai/v1/chat/completions" \
-              -H "Authorization: Bearer $API_KEY" \
-              -H "Content-Type: application/json" \
-              -d '{
-                "model": "llama3.1-8b-instruct",
-                "messages": [
-                  {"role": "system", "content": "Jawab HANYA berdasarkan dokumen yang diberikan. Jelaskan dengan jelas, lengkap, dan dalam Bahasa Indonesia yang baik."},
-                  {"role": "user", "content": "=== DOKUMEN ===\n'"$DOKUMEN_POTONG"'\n\n=== PERTANYAAN ===\n'"$PERTANYAAN"'"}
-                ],
-                "temperature": 0.4,
-                "max_tokens": 1000
-              }')
-            
-            # Ambil jawaban dari respons
-            JAWABAN=$(echo "$RESPONS" | sed -n 's/.*"content":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g' | sed 's/\\\//g')
-            
-            # Kalau gagal
-            if [ -z "$JAWABAN" ]; then
-              JAWABAN="Maaf, belum bisa menjawab. Pastikan kunci CEREBRAS_API_KEY sudah disimpan dengan benar."
-            fi
-            
-            # Susun tampilan: Pertanyaan + Jawaban jadi satu
-            TAMPILAN="
-            <div class='kotak pengguna'>
-              <strong>👤 Kamu bertanya:</strong><br>
-              $PERTANYAAN
-            </div>
-            
-            <div class='kotak ai'>
-              <strong>🤖 AI Menjawab:</strong><br>
-              $JAWABAN
-            </div>
-            "
+              DOKUMEN_POTONG=$(echo "$DOKUMEN" | cut -c 1-40000)
+              
+              RESPONS=$(curl -s -X POST "https://api.cerebras.ai/v1/chat/completions" \
+                -H "Authorization: Bearer $API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "$(cat << 'JSONEND'
+          {
+            "model": "llama3.1-8b-instruct",
+            "messages": [
+              {"role": "system", "content": "Jawab HANYA berdasarkan dokumen yang diberikan. Jelaskan dengan jelas, lengkap, dan dalam Bahasa Indonesia yang baik."},
+              {"role": "user", "content": "=== DOKUMEN ===\n$DOKUMEN_POTONG\n\n=== PERTANYAAN ===\n$PERTANYAAN"}
+            ],
+            "temperature": 0.4,
+            "max_tokens": 1000
+          }
+          JSONEND
+          )")
+              
+              JAWABAN=$(echo "$RESPONS" | sed -n 's/.*"content":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g' | sed 's/\\\//g')
+              
+              if [ -z "$JAWABAN" ]; then
+                  JAWABAN="Maaf, belum bisa menjawab. Pastikan kunci CEREBRAS_API_KEY sudah disimpan dengan benar."
+              fi
+              
+              TAMPILAN_KONTEN="<div class='kotak pengguna'><strong>👤 Kamu bertanya:</strong><br>$PERTANYAAN</div><div class='kotak ai'><strong>🤖 AI Menjawab:</strong><br>$JAWABAN</div>"
           fi
           
-          # Buat halaman lengkap
-          cat > jawaban.html << ENDHTML
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI SISTAJA — Jawaban</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; }
-    h1 { color: #1e40af; font-size: 1.4rem; text-align: center; margin-bottom: 2rem; }
-    .kotak { padding: 1.2rem; border-radius: 12px; margin-bottom: 1.2rem; white-space: pre-wrap; }
-    .pengguna { background: #eff6ff; border-left: 4px solid #3b82f6; }
-    .ai { background: #f0fdf4; border-left: 4px solid #22c55e; }
-    .sistem { background: #fefce8; border-left: 4px solid #eab308; }
-    .kembali { text-align: center; margin-top: 2rem; }
-    .kembali a { background: #2563eb; color: white; padding: 0.8rem 1.5rem; border-radius: 8px; text-decoration: none; display: inline-block; font-weight: 500; }
-    .kembali a:hover { background: #1d4ed8; }
-  </style>
-</head>
-<body>
-  <h1>⚡ AI SISTAJA</h1>
-  $TAMPILAN
-  <div class="kembali">
-    <a href="index.html">✍️ Tanya Lagi</a>
-  </div>
-</body>
-</html>
-ENDHTML
+          cat > jawaban.html << 'HALAMAN'
+  <!DOCTYPE html>
+  <html lang="id">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI SISTAJA — Jawaban</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; }
+      h1 { color: #1e40af; font-size: 1.4rem; text-align: center; margin-bottom: 2rem; }
+      .kotak { padding: 1.2rem; border-radius: 12px; margin-bottom: 1.2rem; white-space: pre-wrap; }
+      .pengguna { background: #eff6ff; border-left: 4px solid #3b82f6; }
+      .ai { background: #f0fdf4; border-left: 4px solid #22c55e; }
+      .sistem { background: #fefce8; border-left: 4px solid #eab308; }
+      .kembali { text-align: center; margin-top: 2rem; }
+      .kembali a { background: #2563eb; color: white; padding: 0.8rem 1.5rem; border-radius: 8px; text-decoration: none; display: inline-block; font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <h1>⚡ AI SISTAJA</h1>
+    TAMPILAN_GANTI
+    <div class="kembali"><a href="index.html">✍️ Tanya Lagi</a></div>
+  </body>
+  </html>
+  HALAMAN
+          
+          sed -i "s|TAMPILAN_GANTI|$TAMPILAN_KONTEN|" jawaban.html
+          SCRIPT
+          
+          chmod +x jalankan_ai.sh
+          ./jalankan_ai.sh
 
       - name: Simpan & unggah
         run: |

@@ -81,7 +81,6 @@
 
   <script>
     // === KONFIGURASI ===
-    const PIPEDREAM_API = "https://eoorg5tfn27u1aj.m.pipedream.net";
     const SUPABASE_URL = "https://fwnkrwaoayikhpdbdoyz.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3bmtyd2FvYXlpa2hwZGJkb3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDM3MjksImV4cCI6MjEwNTA3OTcyOX0.cRQc7Wk9ClTunG1QfITgxMwruke29uegRtXGd6tAnIA";
     const GEMINI_KEY = "AQ.Ab8RN6Ki8-VPx074DcsceVjdXwA4YG-9xmKnGh9aH4UR6hjOcQ";
@@ -106,17 +105,28 @@
       window.scrollTo(0, document.body.scrollHeight);
     }
 
-    // Buat vektor lewat Pipedream (kunci aman tersembunyi)
+    // Buat vektor langsung dari Gemini (sementara tanpa Pipedream)
     async function buatVektor(teks) {
-      const res = await fetch(PIPEDREAM_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teks: teks })
-      });
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "models/gemini-embedding-001",
+            outputDimensionality: 768,
+            content: { parts: [{ text: teks }] }
+          })
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(`Gemini: ${err.error?.message || res.status}`);
+      }
       
-      const hasil = await res.json();
-      if (!hasil.sukses) throw new Error(hasil.pesan || "Gagal buat vektor");
-      return hasil.vektor;
+      const data = await res.json();
+      return data.embedding.values;
     }
 
     // Cari dokumen di Supabase
@@ -133,7 +143,7 @@
 
       if (!res.ok) {
         const teksErr = await res.text();
-        throw new Error(`Error ${res.status}: ${teksErr.substring(0, 200)}`);
+        throw new Error(`Supabase ${res.status}: ${teksErr.substring(0, 200)}`);
       }
       return await res.json();
     }
@@ -153,7 +163,7 @@ PERTANYAAN: ${pertanyaan}
 KONTEKS:
 ${konteks}
 
-Jawab dengan bahasa Indonesia yang jelas. Jika tidak ada jawaban, katakan: "Maaf, informasi tersebut tidak ditemukan dalam dokumen."` }] }]
+Jawab dengan bahasa Indonesia yang jelas dan lengkap. Jika tidak ada jawaban, katakan: "Maaf, informasi tersebut tidak ditemukan dalam dokumen."` }] }]
           })
         }
       );

@@ -2,7 +2,8 @@ name: AI — Apps Script + Cerebras
 
 on:
   repository_dispatch:
-    types: [dari-apps-script]
+    types:
+      - dari-apps-script
 
 jobs:
   proses:
@@ -10,7 +11,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Cek kode
+      - name: Ambil salinan kode
         uses: actions/checkout@v4
 
       - name: Buat file jawaban
@@ -19,12 +20,12 @@ jobs:
           PERTANYAAN: ${{ github.event.client_payload.pertanyaan }}
         run: |
           if [ "$PERTANYAAN" = "perbarui-saja" ]; then
-            JAWABAN="✅ Dokumen berhasil diperbarui! Panjang teks: $(echo "$DOKUMEN" | wc -c) karakter. Buka halaman utama untuk menanya."
+            JAWABAN="Dokumen berhasil diperbarui! Panjang teks: $(echo "$DOKUMEN" | wc -c) karakter. Buka halaman utama untuk menanya."
           else
             JAWABAN="Pertanyaan diterima: $PERTANYAAN"
           fi
 
-          cat > jawaban.html << EOF
+          cat > jawaban.html << 'EOF'
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -41,17 +42,27 @@ jobs:
 <body>
   <h1>📄 Jawaban</h1>
   <div class="kotak">
-    <p>$JAWABAN</p>
+    <p id="hasil"></p>
   </div>
   <p><a href="index.html">← Kembali ke Halaman Utama</a></p>
+  <script>
+    document.getElementById('hasil').textContent = atob('REPLACE_ME');
+  </script>
 </body>
 </html>
 EOF
+
+      - name: Masukkan isi jawaban
+        env:
+          JAWABAN: ${{ env.JAWABAN }}
+        run: |
+          JAWABAN_B64=$(echo -n "$JAWABAN" | base64 -w 0)
+          sed -i "s/REPLACE_ME/$JAWABAN_B64/" jawaban.html
 
       - name: Simpan & unggah
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add jawaban.html
-          git commit -m "Perbarui jawaban otomatis"
+          git commit -m "Perbarui jawaban" || true
           git push

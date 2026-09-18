@@ -1,39 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>AI SISTAJA - Sistem Tanya Jawab</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI SISTAJA — Tanya Dokumen</title>
   <style>
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
-    h1 { color: #1e40af; font-size: 1.5rem; }
-    .kotak { background: #f0f9ff; padding: 1.5rem; border-radius: 10px; border-left: 4px solid #3b82f6; margin: 1.5rem 0; }
-    input { width: 100%; padding: 0.9rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem; }
-    button { background: #2563eb; color: white; border: none; padding: 0.9rem 1.5rem; border-radius: 8px; font-size: 1rem; cursor: pointer; width: 100%; }
-    button:disabled { background: #94a3b8; cursor: not-allowed; }
-    .pesan { margin-top: 1rem; padding: 1rem; border-radius: 8px; display: none; }
-    .sukses { background: #ecfdf5; border-left: 4px solid #10b981; display: block; }
-    .salah { background: #fef2f2; border-left: 4px solid #ef4444; display: block; }
-    a { color: #2563eb; text-decoration: none; font-weight: 500; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+      line-height: 1.7;
+      background: #f8fafc;
+    }
+    .kepala {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    h1 {
+      color: #1e40af;
+      font-size: 1.6rem;
+      margin-bottom: 0.3rem;
+    }
+    .sub {
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+    .status {
+      background: #fff;
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      border-left: 4px solid #10b981;
+      font-size: 0.9rem;
+      color: #065f46;
+    }
+    .form-kotak {
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      margin-bottom: 1.5rem;
+    }
+    .form-kotak h3 {
+      margin-bottom: 1rem;
+      color: #1e293b;
+    }
+    input {
+      width: 100%;
+      padding: 0.9rem 1rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+    button {
+      width: 100%;
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 0.9rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    button:hover { background: #1d4ed8; }
+    button:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+    .kotak {
+      padding: 1.2rem;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      white-space: pre-wrap;
+    }
+    .sistem {
+      background: #fefce8;
+      border-left: 4px solid #eab308;
+      color: #854d0e;
+    }
+    .tanya {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+    }
+    .jawab {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+    }
+    .pesan {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      display: none;
+    }
+    .pesan.tampil { display: block; }
+    .berhasil {
+      background: #e6fffa;
+      color: #065f46;
+    }
+    .gagal {
+      background: #ffe6e6;
+      color: #991b1b;
+    }
   </style>
 </head>
 <body>
-  <h1>⚡ AI SISTAJA — Tanya Dokumen Folder Drive</h1>
-
-  <div class="kotak">
-    <h3 style="margin-top:0;">💬 Tulis Pertanyaan</h3>
-    <input type="text" id="pertanyaan" placeholder="Contoh: Apa isi utama dokumen ini?">
-    <button id="tombolKirim" onclick="kirimPertanyaan()">Kirim Pertanyaan</button>
-    <p style="font-size:0.9rem;color:#64748b;margin-top:0.8rem;">Sistem mencari jawaban dari semua file di Google Drive</p>
+  <div class="kepala">
+    <h1>⚡ AI SISTAJA</h1>
+    <p class="sub">Sistem Tanya Jawab Dokumen Google Drive</p>
   </div>
 
-  <div id="pesan" class="pesan"></div>
+  <div class="status">
+    ✅ Sistem siap — dokumen akan diproses otomatis
+  </div>
+
+  <div class="form-kotak">
+    <h3>💬 Tulis Pertanyaan</h3>
+    <input type="text" id="pertanyaan" placeholder="Contoh: Apa isi utama dokumen ini?">
+    <button id="tombolKirim" onclick="kirimPertanyaan()">Kirim Pertanyaan</button>
+    <div id="pesan" class="pesan"></div>
+  </div>
+
+  <div id="riwayat"></div>
 
   <script>
-    // === GANTI DENGAN URL WEB APP DARI GOOGLE APPS SCRIPT ===
+    // ==================================================
+    // GANTI BAGIAN INI DENGAN URL WEB APP MILIKMU
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwcUkqUcst5YayjfycNQc5DNtkCsoTSH5mve5zvgoXdBN_V0TTfKDPZ1qYcKOuA7reX/exec";
-    // =========================================================
+    // ==================================================
 
     async function kirimPertanyaan() {
       const pertanyaan = document.getElementById("pertanyaan").value.trim();
@@ -41,26 +139,21 @@
       const pesan = document.getElementById("pesan");
 
       if (!pertanyaan) {
-        pesan.className = "pesan salah";
+        pesan.className = "pesan tampil gagal";
         pesan.textContent = "⚠️ Silakan tulis pertanyaan dulu!";
         return;
       }
 
       tombol.disabled = true;
       tombol.textContent = "⏳ Mengirim...";
-      pesan.className = "pesan";
-      pesan.textContent = "";
+      pesan.className = "pesan tampil";
+      pesan.className = "pesan tampil berhasil";
+      pesan.innerHTML = "✅ Pertanyaan dikirim!<br>Muat ulang halaman ini dalam 20–30 detik untuk melihat jawabannya di bawah.";
 
       try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?q=${encodeURIComponent(pertanyaan)}`);
-        
-        if (!res.ok) throw new Error("Koneksi gagal");
-
-        pesan.className = "pesan sukses";
-        pesan.innerHTML = "✅ Pertanyaan dikirim!<br>Buka <a href='jawaban.html' target='_blank'><strong>jawaban.html</strong></a> dalam 20–30 detik untuk melihat jawabannya.";
-
+        await fetch(APPS_SCRIPT_URL + "?q=" + encodeURIComponent(pertanyaan));
       } catch (err) {
-        pesan.className = "pesan salah";
+        pesan.className = "pesan tampil gagal";
         pesan.innerHTML = "❌ Kesalahan: " + err.message + "<br>Pastikan URL Web App sudah benar dan sudah di-deploy.";
       }
 

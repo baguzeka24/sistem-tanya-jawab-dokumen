@@ -62,7 +62,10 @@
   <script>
     const SUPABASE_URL = "https://fwnkrwaoayikhpdbdoyz.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3bmtyd2FvYXlpa2hwZGJkb3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDM3MjksImV4cCI6MjEwNTA3OTcyOX0.cRQc7Wk9ClTunG1QfITgxMwruke29uegRtXGd6tAnIA";
-    const GEMINI_KEY = "AQ.Ab8RN6Ki8-VPx074DcsceVjdXwA4YG-9xmKnGh9aH4UR6hjOcQ";
+    
+    // === KUNCI BARU DARI GOOGLE AI STUDIO ===
+    const GEMINI_KEY = "AQ.Ab8RN6IcLXStc6gGd_Ki254TCJt40NZ_AoSghYdUQYGxsQZYYxA";
+    // ========================================
 
     const chat = document.getElementById('chat');
     const form = document.getElementById('form');
@@ -81,26 +84,27 @@
       window.scrollTo(0, document.body.scrollHeight);
     }
 
-    // ✅ Format yang benar: kunci di URL + model yang ada
+    // Langsung panggil Gemini — pakai model yang benar
     async function buatVektor(teks) {
-      // Pakai model yang tersedia di API key-mu
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GEMINI_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            model: "models/gemini-embedding-001",
+            outputDimensionality: 768,
             content: { parts: [{ text: teks }] }
           })
         }
       );
-
+      
       if (!res.ok) {
         const err = await res.json();
         throw new Error(`Gemini: ${err.error?.message || res.status}`);
       }
-      const data = await res.json();
-      return data.embedding.values;
+      const d = await res.json();
+      return d.embedding.values;
     }
 
     async function cariDokumen(vektor) {
@@ -155,7 +159,7 @@ Jawab dengan bahasa Indonesia yang jelas. Jika tidak ada jawaban, katakan: "Maaf
         const hasil = await cariDokumen(vektor);
         
         if (!hasil || hasil.length === 0) {
-          tambahPesan("Maaf, dokumen yang relevan tidak ditemukan. Pastikan dokumen sudah diproses.");
+          tambahPesan("Maaf, dokumen yang relevan tidak ditemukan. Pastikan dokumen sudah diproses di Pipedream.");
           return;
         }
 

@@ -1,4 +1,4 @@
-name: AI — Apps Script + Cerebras
+name: AI — SISTAJA Pintar
 
 on:
   repository_dispatch:
@@ -7,7 +7,7 @@ on:
       - tanya-dari-web
 
 jobs:
-  proses:
+  pintar:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -15,17 +15,24 @@ jobs:
       - name: Ambil salinan kode
         uses: actions/checkout@v4
 
-      - name: Proses pertanyaan & buat jawaban
+      - name: Proses AI & buat tampilan percakapan
         env:
           DOKUMEN: ${{ github.event.client_payload.dokumen }}
           PERTANYAAN: ${{ github.event.client_payload.pertanyaan }}
           API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
         run: |
-          # Jika hanya perbarui dokumen
+          # === Mode perbarui dokumen ===
           if [ "$PERTANYAAN" = "perbarui-saja" ]; then
-            JAWABAN="✅ Dokumen berhasil diperbarui! Panjang teks: $(echo "$DOKUMEN" | wc -c) karakter. Buka halaman utama untuk menanya."
+            TAMPILAN="
+            <div class='kotak sistem'>
+              <strong>📢 Sistem:</strong> Dokumen berhasil dibaca — <strong>$(echo "$DOKUMEN" | wc -c)</strong> karakter siap dijawab.
+              <br><br>Silakan tulis pertanyaan kamu di halaman utama.
+            </div>
+            "
+          
+          # === Mode tanya jawab sungguhan ===
           else
-            # Potong dokumen agar tidak terlalu panjang
+            # Potong dokumen agar muat
             DOKUMEN_POTONG=$(echo "$DOKUMEN" | cut -c 1-40000)
             
             # Kirim ke AI Cerebras
@@ -35,36 +42,70 @@ jobs:
               -d '{
                 "model": "llama3.1-8b-instruct",
                 "messages": [
-                  {"role": "system", "content": "Kamu adalah asisten yang menjawab pertanyaan HANYA berdasarkan teks dokumen yang diberikan. Jawab dengan jelas, lengkap, dan dalam Bahasa Indonesia yang baik."},
-                  {"role": "user", "content": "=== ISI DOKUMEN ===\n'"$DOKUMEN_POTONG"'\n\n=== PERTANYAAN ===\n'"$PERTANYAAN"'"}
+                  {"role": "system", "content": "Jawab HANYA berdasarkan dokumen yang diberikan. Jelaskan dengan jelas, lengkap, dan dalam Bahasa Indonesia yang baik."},
+                  {"role": "user", "content": "=== DOKUMEN ===\n'"$DOKUMEN_POTONG"'\n\n=== PERTANYAAN ===\n'"$PERTANYAAN"'"}
                 ],
-                "temperature": 0.3,
-                "max_tokens": 800
+                "temperature": 0.4,
+                "max_tokens": 1000
               }')
             
-            # Ekstrak jawaban dari respons JSON
-            JAWABAN=$(echo "$RESPONS" | grep -o '"content":"[^"]*"' | cut -d'"' -f4 | sed 's/\\n/\n/g' | sed 's/\\\//g')
+            # Ambil jawaban dari respons
+            JAWABAN=$(echo "$RESPONS" | sed -n 's/.*"content":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g' | sed 's/\\\//g')
             
-            # Jika gagal dapat jawaban
+            # Kalau gagal
             if [ -z "$JAWABAN" ]; then
-              JAWABAN="Menerima pertanyaan: $PERTANYAAN\n\nDokumen sudah siap. Pastikan kunci CEREBRAS_API_KEY sudah terisi dengan benar."
+              JAWABAN="Maaf, belum bisa menjawab. Pastikan kunci CEREBRAS_API_KEY sudah disimpan dengan benar."
             fi
+            
+            # Susun tampilan: Pertanyaan + Jawaban jadi satu
+            TAMPILAN="
+            <div class='kotak pengguna'>
+              <strong>👤 Kamu bertanya:</strong><br>
+              $PERTANYAAN
+            </div>
+            
+            <div class='kotak ai'>
+              <strong>🤖 AI Menjawab:</strong><br>
+              $JAWABAN
+            </div>
+            "
           fi
           
-          # Buat file jawaban
-          echo '<!DOCTYPE html>' > jawaban.html
-          echo '<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">' >> jawaban.html
-          echo '<title>Jawaban — SISTAJA</title>' >> jawaban.html
-          echo '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:3rem auto;padding:0 1rem;line-height:1.8;}' >> jawaban.html
-          echo 'h1{color:#1e40af;}.kotak{background:#f0f9ff;padding:1.5rem;border-radius:10px;border-left:5px solid #3b82f6;white-space:pre-wrap;}' >> jawaban.html
-          echo '</style></head><body>' >> jawaban.html
-          echo '<h1>📄 Jawaban</h1><div class="kotak"><p>'"$JAWABAN"'</p></div>' >> jawaban.html
-          echo '<p><a href="index.html">← Kembali ke Halaman Utama</a></p></body></html>' >> jawaban.html
+          # Buat halaman lengkap
+          cat > jawaban.html << ENDHTML
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI SISTAJA — Jawaban</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; }
+    h1 { color: #1e40af; font-size: 1.4rem; text-align: center; margin-bottom: 2rem; }
+    .kotak { padding: 1.2rem; border-radius: 12px; margin-bottom: 1.2rem; white-space: pre-wrap; }
+    .pengguna { background: #eff6ff; border-left: 4px solid #3b82f6; }
+    .ai { background: #f0fdf4; border-left: 4px solid #22c55e; }
+    .sistem { background: #fefce8; border-left: 4px solid #eab308; }
+    .kembali { text-align: center; margin-top: 2rem; }
+    .kembali a { background: #2563eb; color: white; padding: 0.8rem 1.5rem; border-radius: 8px; text-decoration: none; display: inline-block; font-weight: 500; }
+    .kembali a:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <h1>⚡ AI SISTAJA</h1>
+  $TAMPILAN
+  <div class="kembali">
+    <a href="index.html">✍️ Tanya Lagi</a>
+  </div>
+</body>
+</html>
+ENDHTML
 
       - name: Simpan & unggah
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add jawaban.html
-          git commit -m "Perbarui jawaban" || true
+          git commit -m "Jawaban diperbarui" || true
           git push

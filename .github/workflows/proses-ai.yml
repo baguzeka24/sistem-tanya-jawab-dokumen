@@ -1,4 +1,4 @@
-name: AI — SISTAJA Langsung
+name: AI SISTAJA — Dashboard Utama
 
 on:
   repository_dispatch:
@@ -7,37 +7,41 @@ on:
       - tanya-dari-web
 
 jobs:
-  pintar:
+  utama:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Buat halaman utama langsung
+      - name: Buat halaman utama lengkap
         env:
           DOKUMEN: ${{ github.event.client_payload.dokumen }}
           PERTANYAAN: ${{ github.event.client_payload.pertanyaan }}
           API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
         run: |
+          # === Siapkan konten ===
           if [ "$PERTANYAAN" = "perbarui-saja" ]; then
-            TAMPILAN="<div class='kotak sistem'><strong>📢 Sistem:</strong> Dokumen siap — $(echo "$DOKUMEN" | wc -c) karakter dibaca.<br><br>Tulis pertanyaan di bawah ini.</div>"
+            STATUS_DOKUMEN="✅ Dokumen siap — $(echo "$DOKUMEN" | wc -c) karakter terbaca"
+            BLOK_JAWABAN='<div class="kotak sistem"><strong>📢 Sistem:</strong> Silakan ajukan pertanyaan di bawah.</div>'
           else
             DOKUMEN_POTONG=$(echo "$DOKUMEN" | cut -c 1-40000)
             
             RESPONS=$(curl -s -X POST "https://api.cerebras.ai/v1/chat/completions" \
               -H "Authorization: Bearer $API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"model\":\"llama3.1-8b-instruct\",\"messages\":[{\"role\":\"system\",\"content\":\"Jawab hanya berdasarkan dokumen. Bahasa Indonesia jelas.\"},{\"role\":\"user\",\"content\":\"DOKUMEN:\n$DOKUMEN_POTONG\n\nPERTANYAAN:\n$PERTANYAAN\"}],\"temperature\":0.4,\"max_tokens\":1000}")
+              -d "{\"model\":\"llama3.1-8b-instruct\",\"messages\":[{\"role\":\"system\",\"content\":\"Jawab hanya berdasarkan dokumen yang diberikan. Bahasa Indonesia jelas dan lengkap.\"},{\"role\":\"user\",\"content\":\"DOKUMEN:\n$DOKUMEN_POTONG\n\nPERTANYAAN:\n$PERTANYAAN\"}],\"temperature\":0.4,\"max_tokens\":1000}")
             
             JAWABAN=$(echo "$RESPONS" | sed -n 's/.*"content":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g' | sed 's/\\\//g')
             
-            [ -z "$JAWABAN" ] && JAWABAN="Maaf, kunci AI belum terhubung. Coba lagi nanti."
+            [ -z "$JAWABAN" ] && JAWABAN="Maaf, belum bisa menjawab. Pastikan kunci CEREBRAS_API_KEY sudah terisi."
             
-            TAMPILAN="<div class='kotak tanya'><strong>👤 Pertanyaan:</strong><br>$PERTANYAAN</div><div class='kotak jawab'><strong>🤖 Jawaban:</strong><br>$JAWABAN</div>"
+            STATUS_DOKUMEN="📄 Pertanyaan diproses dari dokumen — $(echo "$DOKUMEN" | wc -c) karakter"
+            BLOK_JAWABAN="<div class='kotak tanya'><strong>👤 Pertanyaan:</strong><br>$PERTANYAAN</div><div class='kotak jawab'><strong>🤖 Jawaban:</strong><br>$JAWABAN</div>"
           fi
 
-          cat > index.html << AKHIR
+          # === Tulis halaman lengkap ===
+          cat > index.html << HALAMAN
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -45,50 +49,77 @@ jobs:
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI SISTAJA — Tanya Dokumen</title>
   <style>
-    *{box-sizing:border-box}
-    body{font-family:system-ui,sans-serif;max-width:700px;margin:2rem auto;padding:0 1rem;line-height:1.7}
-    h1{color:#1e40af;font-size:1.4rem;text-align:center}
-    .kotak{padding:1.2rem;border-radius:12px;margin:1rem 0;white-space:pre-wrap}
-    .sistem{background:#fefce8;border-left:4px solid #eab308}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;max-width:720px;margin:0 auto;padding:2rem 1rem;line-height:1.7;background:#f8fafc}
+    .kepala{text-align:center;margin-bottom:2rem}
+    h1{color:#1e40af;font-size:1.6rem;margin-bottom:0.3rem}
+    .sub{color:#64748b;font-size:0.95rem}
+    .status{background:#fff;padding:0.8rem 1rem;border-radius:8px;margin-bottom:1.5rem;border-left:4px solid #10b981;font-size:0.9rem;color:#065f46}
+    .form-kotak{background:#fff;padding:1.5rem;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:1.5rem}
+    input{width:100%;padding:0.9rem 1rem;border:1px solid #cbd5e1;border-radius:8px;font-size:1rem;margin-bottom:1rem}
+    button{width:100%;background:#2563eb;color:white;border:none;padding:0.9rem 1.5rem;border-radius:8px;font-size:1rem;cursor:pointer;font-weight:500;transition:background 0.2s}
+    button:hover{background:#1d4ed8}
+    button:disabled{background:#94a3b8;cursor:not-allowed}
+    .kotak{padding:1.2rem;border-radius:10px;margin-bottom:1rem;white-space:pre-wrap}
+    .sistem{background:#fefce8;border-left:4px solid #eab308;color:#854d0e}
     .tanya{background:#eff6ff;border-left:4px solid #3b82f6}
     .jawab{background:#f0fdf4;border-left:4px solid #22c55e}
-    input{width:100%;padding:0.9rem;border:1px solid #cbd5e1;border-radius:8px;font-size:1rem;margin:0.5rem 0}
-    button{background:#2563eb;color:white;border:none;padding:0.9rem 1.5rem;border-radius:8px;font-size:1rem;cursor:pointer;width:100%}
-    button:disabled{background:#94a3b8}
-    .pesan{margin-top:1rem;padding:1rem;border-radius:8px;display:none}
-    .info{display:block;background:#e6fffa}
+    .pesan{margin-top:1rem;padding:1rem;border-radius:8px;background:#e6fffa;color:#065f46;display:none}
+    .pesan.tampil{display:block}
   </style>
 </head>
 <body>
-  <h1>⚡ AI SISTAJA</h1>
-  <form onsubmit="kirim(event)">
-    <input type="text" id="q" placeholder="Tulis pertanyaan tentang dokumen...">
-    <button id="btn">Kirim Pertanyaan</button>
-  </form>
-  <div id="pesan" class="pesan info">⏳ Pertanyaan dikirim... Muat ulang halaman dalam 20–30 detik untuk melihat jawaban.</div>
-  <div id="riwayat">$TAMPILAN</div>
+  <div class="kepala">
+    <h1>⚡ AI SISTAJA</h1>
+    <p class="sub">Sistem Tanya Jawab Dokumen Google Drive</p>
+  </div>
+
+  <div class="status">$STATUS_DOKUMEN</div>
+
+  <div class="form-kotak">
+    <input type="text" id="pertanyaan" placeholder="Tulis pertanyaan tentang isi dokumen...">
+    <button id="tombolKirim" onclick="kirimPertanyaan()">Kirim Pertanyaan</button>
+    <div id="pesan" class="pesan">⏳ Pertanyaan dikirim! Muat ulang halaman dalam 20–30 detik untuk melihat jawaban.</div>
+  </div>
+
+  <div id="riwayat">$BLOK_JAWABAN</div>
+
   <script>
-    const URL = "https://script.google.com/macros/s/AKfy.../exec"; // GANTI URL-MU
-    async function kirim(e){
-      e.preventDefault();
-      const q = document.getElementById("q").value.trim();
-      if(!q)return alert("Tulis pertanyaan dulu!");
-      document.getElementById("btn").disabled = true;
-      document.getElementById("btn").textContent = "Mengirim...";
-      document.getElementById("pesan").style.display = "block";
-      await fetch(URL+"?q="+encodeURIComponent(q));
-      document.getElementById("btn").disabled = false;
-      document.getElementById("btn").textContent = "Kirim Pertanyaan";
+    // === GANTI DENGAN URL WEB APP MILIKMU ===
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfy.../exec";
+    // =======================================
+
+    async function kirimPertanyaan(){
+      const q = document.getElementById("pertanyaan").value.trim();
+      const btn = document.getElementById("tombolKirim");
+      const pesan = document.getElementById("pesan");
+
+      if(!q) return alert("Silakan tulis pertanyaan dulu!");
+
+      btn.disabled = true;
+      btn.textContent = "⏳ Mengirim...";
+      pesan.classList.add("tampil");
+
+      try{
+        await fetch(APPS_SCRIPT_URL + "?q=" + encodeURIComponent(q));
+      }catch(err){
+        pesan.textContent = "❌ Kesalahan: " + err.message;
+        pesan.style.background = "#ffe6e6";
+        pesan.style.color = "#991b1b";
+      }
+
+      btn.disabled = false;
+      btn.textContent = "Kirim Pertanyaan";
     }
   </script>
 </body>
 </html>
-AKHIR
+HALAMAN
 
-      - name: Simpan
+      - name: Simpan & unggah
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Jawaban langsung di halaman utama" || true
+          git commit -m "Perbarui dashboard utama" || true
           git push

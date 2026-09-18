@@ -7,34 +7,24 @@ on:
 jobs:
   proses:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Ambil data dari pemicu
-        id: ambil_data
-        run: |
-          echo "DOKUMEN<<EOF" >> $GITHUB_ENV
-          echo "${{ github.event.client_payload.dokumen }}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-          echo "PERTANYAAN=${{ github.event.client_payload.pertanyaan }}" >> $GITHUB_ENV
-
-      - name: Siap jawaban
-        id: siapkan
-        run: |
-          DOKUMEN="$DOKUMEN"
-          PERTANYAAN="$PERTANYAAN"
-          
-          if [ "$PERTANYAAN" = "perbarui-saja" ]; then
-            JAWABAN="✅ Dokumen berhasil diperbarui. Buka halaman utama untuk menanya."
-          else
-            JAWABAN="Terima kasih atas pertanyaannya. Sistem siap menjawab. Dokumen yang diproses sepanjang $(echo "$DOKUMEN" | wc -c) karakter."
-          fi
-          
-          echo "JAWABAN<<EOF" >> $GITHUB_ENV
-          echo "$JAWABAN" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+      - name: Cek kode
+        uses: actions/checkout@v4
 
       - name: Buat file jawaban
+        env:
+          DOKUMEN: ${{ github.event.client_payload.dokumen }}
+          PERTANYAAN: ${{ github.event.client_payload.pertanyaan }}
         run: |
-          cat > jawaban.html << 'HTML'
+          if [ "$PERTANYAAN" = "perbarui-saja" ]; then
+            JAWABAN="✅ Dokumen berhasil diperbarui! Panjang teks: $(echo "$DOKUMEN" | wc -c) karakter. Buka halaman utama untuk menanya."
+          else
+            JAWABAN="Pertanyaan diterima: $PERTANYAAN"
+          fi
+
+          cat > jawaban.html << EOF
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -42,30 +32,26 @@ jobs:
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jawaban — SISTAJA</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 3rem auto; padding: 0 1rem; line-height: 1.6; }
+    body { font-family: sans-serif; max-width: 700px; margin: 3rem auto; padding: 0 1rem; }
     h1 { color: #1e40af; }
-    .kotak { background: #f0f9ff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #3b82f6; margin: 1.5rem 0; }
-    a { color: #2563eb; text-decoration: none; font-weight: 500; }
+    .kotak { background: #f0f9ff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #3b82f6; }
+    a { color: #2563eb; text-decoration: none; }
   </style>
 </head>
 <body>
   <h1>📄 Jawaban</h1>
   <div class="kotak">
-    <p id="isi-jawaban"></p>
+    <p>$JAWABAN</p>
   </div>
   <p><a href="index.html">← Kembali ke Halaman Utama</a></p>
-  <script>
-    const isi = document.getElementById('isi-jawaban');
-    isi.textContent = atob('{{JAWABAN_BASE64}}');
-  </script>
 </body>
 </html>
-HTML
+EOF
 
-      - name: Simpan & unggah file
+      - name: Simpan & unggah
         run: |
-          git config --global user.name "baguzeka24"
-          git config --global user.email "baguzeka24@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add jawaban.html
-          git commit -m "Perbarui jawaban" || echo "Tidak ada perubahan"
+          git commit -m "Perbarui jawaban otomatis"
           git push

@@ -1,181 +1,93 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
+  <title>AI SISTAJA - Sistem Tanya Jawab</title>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistem Tanya Jawab Dokumen</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-  <script>
-    tailwind.config = { theme: { extend: { colors: { primary: '#165DFF' } } } }
-  </script>
   <style>
-    .gradient-bg { background: linear-gradient(135deg, #165DFF 0%, #36CBCB 100%); }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-    .animate-fadeIn { animation: fadeIn 0.3s ease forwards; }
+    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    .kotak { background: #f5f5f5; padding: 1.5rem; border-radius: 10px; margin: 1rem 0; }
+    textarea, input { width: 100%; padding: 0.8rem; margin: 0.5rem 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+    button { background: #e63946; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 1rem; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    .jawaban { margin-top: 1rem; padding: 1rem; background: #fff0f0; border-radius: 6px; display: none; white-space: pre-wrap; }
+    .info { font-size: 0.9rem; color: #666; margin-top: 0.5rem; }
   </style>
 </head>
-<body class="bg-gray-50">
-  <header class="gradient-bg text-white py-4 px-6 shadow-lg">
-    <div class="max-w-5xl mx-auto flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center"><i class="fa fa-robot text-xl"></i></div>
-        <div><h1 class="text-xl font-bold">Asisten Dokumen</h1><p class="text-white/80 text-sm">Berdasarkan dokumen yang Anda unggah</p></div>
-      </div>
-      <div id="status" class="flex items-center gap-2 text-sm"><span class="w-2 h-2 bg-green-400 rounded-full"></span> Siap</div>
-    </div>
-  </header>
+<body>
 
-  <main class="max-w-5xl mx-auto px-4 py-6 pb-32">
-    <div id="chat" class="space-y-6">
-      <div class="flex gap-3 animate-fadeIn">
-        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0"><i class="fa fa-info"></i></div>
-        <div class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-gray-100 max-w-[90%]">
-          <p>Halo! 👋 Silakan tanya apa saja seputar dokumen yang telah diunggah.</p>
-        </div>
-      </div>
-    </div>
-    <div id="loading" class="hidden flex gap-3 mt-6">
-      <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0"><i class="fa fa-circle-o-notch fa-spin"></i></div>
-      <div class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-gray-100">
-        <div class="flex gap-1">
-          <span class="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style="animation-delay:0ms"></span>
-          <span class="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style="animation-delay:150ms"></span>
-          <span class="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style="animation-delay:300ms"></span>
-        </div>
-      </div>
-    </div>
-  </main>
+  <h1>⚡ AI Tanya Dokumen — Cerebras</h1>
 
-  <footer class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg">
-    <form id="form" class="max-w-5xl mx-auto">
-      <div class="flex gap-3 items-end">
-        <textarea id="tanya" placeholder="Tulis pertanyaan..." rows="1"
-          class="flex-1 border border-gray-300 rounded-2xl p-3 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"></textarea>
-        <button type="submit" class="bg-primary hover:bg-primary/90 text-white rounded-full w-10 h-10 flex items-center justify-center">
-          <i class="fa fa-paper-plane"></i>
-        </button>
-      </div>
-    </form>
-  </footer>
+  <div class="kotak">
+    <h3>1. Masukkan Dokumen</h3>
+    <textarea id="dokumen" rows="6" placeholder="Tempel isi dokumen di sini..."></textarea>
+  </div>
+
+  <div class="kotak">
+    <h3>2. Tanyakan Sesuatu</h3>
+    <input type="text" id="pertanyaan" placeholder="Contoh: Apa inti dokumen ini?">
+    <br><br>
+    <button id="tombolKirim" onclick="mulaiTanya()">Kirim Pertanyaan</button>
+    <p class="info">⚠️ Pertama kali butuh waktu ~10-30 detik</p>
+  </div>
+
+  <div id="hasil" class="jawaban"></div>
 
   <script>
-    const SUPABASE_URL = "https://fwnkrwaoayikhpdbdoyz.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3bmtyd2FvYXlpa2hwZGJkb3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDM3MjksImV4cCI6MjEwNTA3OTcyOX0.cRQc7Wk9ClTunG1QfITgxMwruke29uegRtXGd6tAnIA";
-    
-    // === KUNCI BARU DARI GOOGLE AI STUDIO ===
-    const GEMINI_KEY = "AQ.Ab8RN6IcLXStc6gGd_Ki254TCJt40NZ_AoSghYdUQYGxsQZYYxA";
-    // ========================================
+    // === UBAH BAGIAN INI ===
+    const REPO_OWNER = "baguzeka24";   // contoh: "budi123"
+    const REPO_NAME = "baguzeka24/sistem-tanya-jawab-dokumen
+";
+    // ========================
 
-    const chat = document.getElementById('chat');
-    const form = document.getElementById('form');
-    const tanya = document.getElementById('tanya');
-    const loading = document.getElementById('loading');
-    const status = document.getElementById('status');
+    async function mulaiTanya() {
+      const dokumen = document.getElementById('dokumen').value;
+      const pertanyaan = document.getElementById('pertanyaan').value;
+      const tombol = document.getElementById('tombolKirim');
+      const hasil = document.getElementById('hasil');
 
-    function tambahPesan(teks, isUser = false, sumber = null) {
-      const div = document.createElement('div');
-      div.className = `flex gap-3 animate-fadeIn ${isUser ? 'flex-row-reverse' : ''}`;
-      const bg = isUser ? 'bg-primary text-white rounded-tr-none' : 'bg-white rounded-tl-none border';
-      const ikon = isUser ? '<i class="fa fa-user"></i>' : '<i class="fa fa-robot"></i>';
-      const infoSumber = sumber ? `<div class="mt-2 pt-2 border-t text-xs text-gray-500">📄 Sumber: ${sumber}</div>` : '';
-      div.innerHTML = `<div class="w-8 h-8 rounded-full ${isUser ? 'bg-white/20' : 'bg-primary/10 text-primary'} flex items-center justify-center flex-shrink-0">${ikon}</div><div class="${bg} p-4 shadow-sm max-w-[90%] whitespace-pre-wrap">${teks}${infoSumber}</div>`;
-      chat.appendChild(div);
-      window.scrollTo(0, document.body.scrollHeight);
-    }
-
-    // Langsung panggil Gemini — pakai model yang benar
-    async function buatVektor(teks) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "models/gemini-embedding-001",
-            outputDimensionality: 768,
-            content: { parts: [{ text: teks }] }
-          })
-        }
-      );
-      
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(`Gemini: ${err.error?.message || res.status}`);
+      if (!dokumen || !pertanyaan) {
+        alert("Isi dokumen dan pertanyaan dulu!");
+        return;
       }
-      const d = await res.json();
-      return d.embedding.values;
-    }
 
-    async function cariDokumen(vektor) {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/cari_dokumen`, {
-        method: "POST",
-        headers: {
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ vektor_input: vektor, batas: 3 })
-      });
-      if (!res.ok) throw new Error(`Supabase ${res.status}`);
-      return await res.json();
-    }
-
-    async function tanyaAI(pertanyaan, konteks) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `Jawab HANYA dari konteks di bawah ini.
-
-PERTANYAAN: ${pertanyaan}
-
-KONTEKS:
-${konteks}
-
-Jawab dengan bahasa Indonesia yang jelas. Jika tidak ada jawaban, katakan: "Maaf, informasi tersebut tidak ditemukan dalam dokumen."` }] }]
-          })
-        }
-      );
-      if (!res.ok) throw new Error(`AI Error: ${res.status}`);
-      const d = await res.json();
-      return d.candidates[0].content.parts[0].text;
-    }
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const teksPertanyaan = tanya.value.trim();
-      if (!teksPertanyaan) return;
-
-      tambahPesan(teksPertanyaan, true);
-      tanya.value = '';
-      loading.classList.remove('hidden');
-      status.innerHTML = '<span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span> Memproses...';
+      tombol.disabled = true;
+      tombol.textContent = "⏳ Memproses...";
+      hasil.style.display = "block";
+      hasil.textContent = "Mengirim ke sistem...";
 
       try {
-        const vektor = await buatVektor(teksPertanyaan);
-        const hasil = await cariDokumen(vektor);
-        
-        if (!hasil || hasil.length === 0) {
-          tambahPesan("Maaf, dokumen yang relevan tidak ditemukan. Pastikan dokumen sudah diproses di Pipedream.");
-          return;
-        }
+        const res = await fetch(
+          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`,
+          {
+            method: "POST",
+            headers: {
+              "Accept": "application/vnd.github+json",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              event_type: "tanya-ai",
+              client_payload: {
+                dokumen: dokumen,
+                pertanyaan: pertanyaan
+              }
+            })
+          }
+        );
 
-        const konteks = hasil.map(d => `[${d.nama_file}]\n${d.content}`).join('\n\n');
-        const sumber = hasil.map(d => d.nama_file).join(', ');
-        const jawab = await tanyaAI(teksPertanyaan, konteks);
-        tambahPesan(jawab, false, sumber);
-        status.innerHTML = '<span class="w-2 h-2 bg-green-400 rounded-full"></span> Siap';
+        if (!res.ok) throw new Error("Kode: " + res.status);
+
+        hasil.innerHTML = "✅ Permintaan dikirim! <br>";
+        hasil.innerHTML += "Buka halaman <strong>jawaban.html</strong> dalam 15-30 detik untuk melihat hasilnya.";
 
       } catch (err) {
-        tambahPesan(`⚠️ Kesalahan: ${err.message}`);
-        status.innerHTML = '<span class="w-2 h-2 bg-red-400 rounded-full"></span> Error';
-      } finally {
-        loading.classList.add('hidden');
+        hasil.innerHTML = "❌ Kesalahan: " + err.message + "<br>";
+        hasil.innerHTML += "Pastikan nama pemilik dan nama repositori sudah benar.";
       }
-    });
+
+      tombol.disabled = false;
+      tombol.textContent = "Kirim Pertanyaan";
+    }
   </script>
+
 </body>
 </html>

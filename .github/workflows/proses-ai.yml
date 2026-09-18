@@ -15,22 +15,48 @@ jobs:
       - name: Ambil salinan kode
         uses: actions/checkout@v4
 
-      - name: Buat file jawaban
+      - name: Proses pertanyaan & buat jawaban
         env:
           DOKUMEN: ${{ github.event.client_payload.dokumen }}
           PERTANYAAN: ${{ github.event.client_payload.pertanyaan }}
+          API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
         run: |
+          # Jika hanya perbarui dokumen
           if [ "$PERTANYAAN" = "perbarui-saja" ]; then
             JAWABAN="✅ Dokumen berhasil diperbarui! Panjang teks: $(echo "$DOKUMEN" | wc -c) karakter. Buka halaman utama untuk menanya."
           else
-            JAWABAN="Pertanyaan Anda: $PERTANYAAN — sedang diproses..."
+            # Potong dokumen agar tidak terlalu panjang
+            DOKUMEN_POTONG=$(echo "$DOKUMEN" | cut -c 1-40000)
+            
+            # Kirim ke AI Cerebras
+            RESPONS=$(curl -s -X POST "https://api.cerebras.ai/v1/chat/completions" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "model": "llama3.1-8b-instruct",
+                "messages": [
+                  {"role": "system", "content": "Kamu adalah asisten yang menjawab pertanyaan HANYA berdasarkan teks dokumen yang diberikan. Jawab dengan jelas, lengkap, dan dalam Bahasa Indonesia yang baik."},
+                  {"role": "user", "content": "=== ISI DOKUMEN ===\n'"$DOKUMEN_POTONG"'\n\n=== PERTANYAAN ===\n'"$PERTANYAAN"'"}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 800
+              }')
+            
+            # Ekstrak jawaban dari respons JSON
+            JAWABAN=$(echo "$RESPONS" | grep -o '"content":"[^"]*"' | cut -d'"' -f4 | sed 's/\\n/\n/g' | sed 's/\\\//g')
+            
+            # Jika gagal dapat jawaban
+            if [ -z "$JAWABAN" ]; then
+              JAWABAN="Menerima pertanyaan: $PERTANYAAN\n\nDokumen sudah siap. Pastikan kunci CEREBRAS_API_KEY sudah terisi dengan benar."
+            fi
           fi
           
+          # Buat file jawaban
           echo '<!DOCTYPE html>' > jawaban.html
           echo '<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">' >> jawaban.html
           echo '<title>Jawaban — SISTAJA</title>' >> jawaban.html
-          echo '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:3rem auto;padding:0 1rem;}' >> jawaban.html
-          echo '.kotak{background:#f0f9ff;padding:1.5rem;border-radius:10px;border-left:5px solid #3b82f6;}' >> jawaban.html
+          echo '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:3rem auto;padding:0 1rem;line-height:1.8;}' >> jawaban.html
+          echo 'h1{color:#1e40af;}.kotak{background:#f0f9ff;padding:1.5rem;border-radius:10px;border-left:5px solid #3b82f6;white-space:pre-wrap;}' >> jawaban.html
           echo '</style></head><body>' >> jawaban.html
           echo '<h1>📄 Jawaban</h1><div class="kotak"><p>'"$JAWABAN"'</p></div>' >> jawaban.html
           echo '<p><a href="index.html">← Kembali ke Halaman Utama</a></p></body></html>' >> jawaban.html

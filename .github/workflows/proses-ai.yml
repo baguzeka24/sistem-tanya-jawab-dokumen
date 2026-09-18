@@ -1,0 +1,96 @@
+name: AI — Apps Script + Cerebras
+run-name: Memproses dari folder Drive...
+
+on:
+  repository_dispatch:
+    types: [dari-apps-script]
+
+jobs:
+  proses:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ambil kode
+        uses: actions/checkout@v4
+
+      - name: Terima Data dari Apps Script
+        id: data
+        env:
+          DOKUMEN: ${{ github.event.client_payload.dokumen }}
+          PERTANYAAN: ${{ github.event.client_payload.pertanyaan }}
+        run: |
+          echo "$DOKUMEN" > dokumen_dari_drive.txt
+          echo "PERTANYAAN=$PERTANYAAN" >> $GITHUB_ENV
+
+      - name: Proses Pertanyaan
+        if: env.PERTANYAAN != 'perbarui-saja'
+        env:
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+        run: |
+          DOKUMEN=$(cat dokumen_dari_drive.txt)
+          
+          RESPONSE=$(curl -s -X POST https://api.cerebras.ai/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $CEREBRAS_API_KEY" \
+            -d '{
+              "model": "llama-3.3-70b",
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "Jawab HANYA berdasarkan dokumen yang diberikan. Sebutkan nama dokumen sumber. Jika tidak ada jawaban, katakan: Tidak ditemukan di dokumen mana pun. Gunakan bahasa Indonesia yang jelas."
+                },
+                {
+                  "role": "user",
+                  "content": "DOKUMEN:\n'"${DOKUMEN//\"/\\\"}"'\n\nPERTANYAAN: '"$PERTANYAAN"'"
+                }
+              ],
+              "temperature": 0.3,
+              "max_tokens": 2000
+            }')
+          
+          echo "$RESPONSE" > hasil_ai.json
+          cat hasil_ai.json
+
+      - name: Buat Halaman Jawaban
+        if: env.PERTANYAAN != 'perbarui-saja'
+        run: |
+          JAWABAN=$(python3 -c "
+          import json
+          try:
+            with open('hasil_ai.json') as f:
+              data = json.load(f)
+            if 'error' in data:
+              print('❌ Kesalahan: ' + data['error']['message'])
+            else:
+              print(data['choices'][0]['message']['content'])
+          except Exception as e:
+            print('❌ Gagal: ' + str(e))
+          ")
+          
+          cat > jawaban.html << EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>Jawaban — Folder Drive</title>
+            <style>
+              body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+              .kotak { background: #f0f9ff; padding: 1.5rem; border-radius: 10px; }
+              pre { white-space: pre-wrap; line-height: 1.6; }
+            </style>
+          </head>
+          <body>
+            <h1>✅ Jawaban dari Folder Google Drive</h1>
+            <div class="kotak"><pre>${JAWABAN}</pre></div>
+            <p><a href="index.html">← Kembali ke Halaman Utama</a></p>
+          </body>
+          </html>
+          EOF
+
+      - name: Simpan Hasil
+        if: env.PERTANYAAN != 'perbarui-saja'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add jawaban.html
+          git commit -m "Jawaban baru" || true
+          git push || true
